@@ -20,17 +20,7 @@ from keras.utils.vis_utils import plot_model
 from keras.models import load_model
 import keras
 
-
-# class MyCbk(keras.callbacks.Callback):
-#
-#     def __init__(self, model):
-#         self.model_to_save = model
-#
-#     def on_epoch_end(self, epoch, logs=None):
-#         self.model_to_save.save('model_at_epoch_%d.h5' % epoch)
-#
-
-
+# save model in right wway when training on parallel GPU
 class MyCbk(keras.callbacks.Callback):
     def __init__(self, model, filepath):
         self.model_to_save = model
@@ -44,7 +34,6 @@ class MyCbk(keras.callbacks.Callback):
         self.model_to_save.save(filepath, overwrite=True)
 
 def main(train_x, train_y, patch_rows, patch_cols, batch_size=64, epochs=1000,  model="h_unet",name_suffix="suffix",):
-    # create a few variables needed later.
     tmp_model_path = os.path.join('cache', name_suffix + '{epoch:02d}-{val_loss:.2f}_ckpt_best.hdf5')
 
     early_stopping_patience = 15
@@ -58,24 +47,20 @@ def main(train_x, train_y, patch_rows, patch_cols, batch_size=64, epochs=1000,  
     if model == 'unet':
         model_args['base_depth'] = 32
 
-    # load in data. don't read entirely into memory - too big.
-    # train_im_arr = train_x
-    # val_im_arr = train_x
-    # train_mask_arr = train_y
-    # val_mask_arr = train_y
     # (1064, 13, 900, 900)
     print(train_x.shape)
     print(train_y.shape)
     # create generators for training and validation
     training_gen = DataGenerator(
-        train_x, train_y, batch_size=batch_size, img_rows=patch_rows, img_cols=patch_cols,
+        train_x[100:], train_y[100], batch_size=batch_size, img_rows=patch_rows, img_cols=patch_cols,
         horizontal_flip=True, vertical_flip=True, swap_axis=True
         )
     validation_gen = DataGenerator(
-        train_x[0:10, :, :, :], train_y[0:10, :, :, :], batch_size=batch_size,
+        train_x[0:100, :, :, :], train_y[0:100, :, :, :], batch_size=batch_size,
         )
-    n_train_ims = train_x.shape[0]
-    n_val_ims = 10
+
+    n_train_ims = train_x.shape[0]-100
+    n_val_ims = 100
 
     monitor = 'val_loss'
     print()
@@ -92,13 +77,13 @@ def main(train_x, train_y, patch_rows, patch_cols, batch_size=64, epochs=1000,  
     callbax = []
 
 
-    # callbax.append(ReduceLROnPlateau(factor=0.2, patience=3, verbose=1,
-    #                                  min_delta=0.01))
+    callbax.append(ReduceLROnPlateau(factor=0.2, patience=3, verbose=1,
+                                     min_delta=0.01))
     # callbax.append(ModelCheckpoint(tmp_model_path, monitor=monitor))
-    # callbax.append(TerminateOnMetricNaN('precision'))
-    # callbax.append(EarlyStopping(monitor=monitor,
-    #                              patience=early_stopping_patience,
-    #                              mode='auto'))
+    callbax.append(TerminateOnMetricNaN('precision'))
+    callbax.append(EarlyStopping(monitor=monitor,
+                                  patience=early_stopping_patience,
+                                  mode='auto'))
     callbax.append(TensorBoard(log_dir='tensorboard'))
 
     lf = jaccard_coef_loss
@@ -109,6 +94,7 @@ def main(train_x, train_y, patch_rows, patch_cols, batch_size=64, epochs=1000,  
                           verbose=True, **model_args)
 
     callbax.append(MyCbk(original_model, tmp_model_path))
+    
     # plot_model(model, to_file='scheme.png', show_shapes=True)
     # model = load_model('cache/8_1000_Atlanta_nadir44_catid_1030010003CCD70076-0.47_ckpt_best.hdf5', custom_objects={
     #     'jaccard_coef_loss': jaccard_coef_loss,

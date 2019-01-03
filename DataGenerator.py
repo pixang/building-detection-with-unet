@@ -6,7 +6,7 @@ import random
 
 
 class DataGenerator(keras.utils.Sequence):
-    """Data generator to produce matching image-mask pairs from the generator array."""
+    """Data generator to produce image-mask pairs from the generator array."""
     def __init__(self, X_train, y_train, batch_size=32,
                  img_rows=256, img_cols=256, shuffle=True, horizontal_flip=False,
                  vertical_flip=False, swap_axis=False):

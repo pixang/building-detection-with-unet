@@ -39,11 +39,9 @@ def recall(y_true, y_pred):
 
 def f1_score(y_true, y_pred):
     """F1 score for foreground pixels ONLY.
-
     Calculates pixelwise F1 score for the foreground pixels (mask value == 1).
     Returns NaN if the model does not identify any foreground pixels in the
     image.
-
     """
 
     prec = precision(y_true, y_pred)

@@ -120,11 +120,6 @@ if __name__ == '__main__':
                                 flip_axis(predicted_mask_h, 2) *
                                 predicted_mask_s.swapaxes(1, 2), 0.25)
 
-            # ax1 = plt.subplot(111)
-            # ax1.set_title(image_id)
-            # ax1.imshow(new_mask[0] > threshold)
-            # plt.show()
-
             ix = 0
             polygons = mask2poly(new_mask, threshold)
             for k in range(len(polygons)):

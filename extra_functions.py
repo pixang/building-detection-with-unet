@@ -20,8 +20,6 @@ import matplotlib.pyplot as plt
 import skimage.color as color
 from skimage.transform import rescale
 
-# dirty hacks from SO to allow loading of big cvs's
-# without decrement loop it crashes with C error
 # http://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
 maxInt = sys.maxsize
 decrement = True
@@ -35,13 +33,11 @@ while decrement:
     except OverflowError:
         maxInt = int(maxInt/10)
         decrement = True
-#
+
 # data_path = '/media/stevehan/data/SpaceNet_Off-Nadir_Dataset/SpaceNet-Off-Nadir_Train'
 # train_wkt = pd.read_csv(os.path.join(data_path,'summaryData_Train_2', 'Atlanta_nadir7_catid_1030010003D22F00_Train.csv'))
 
 epsilon = 1e-15
-
-
 
 def mask_to_polygons(mask, epsilon=1, min_area=1.):
     # first, find contours with cv2: it's much faster than shapely
@@ -78,7 +74,6 @@ def mask_to_polygons(mask, epsilon=1, min_area=1.):
                        if cv2.contourArea(c) >= min_area])
             poly = poly.buffer(0)
             all_polygons.append(poly)
-    # approximating polygons might have created invalid ones, fix them
     # all_polygons = MultiPolygon(all_polygons)
     # if not all_polygons.is_valid:
     #     all_polygons = all_polygons.buffer(0)
@@ -206,57 +201,18 @@ def read_image_16(data_path,collect_name, image_id, normalization_value = 65535.
     for band in range(im_reader_2.count):
         img_p[:, :] = im_reader_2.read(band + 1)
 
-    # img_m = np.transpose(tiff.imread(path_MS), (1, 2, 0)) / 65535.0
-    # img_4 = np.transpose(tiff.imread(path_Pan_Sharpen), (1, 2, 0)) / 65535.0
-    # img_p = tiff.imread(path_PAN).astype(np.float32) /65535.0
-    # print("normalization value:   ", normalization_value)
-
     img_m = img_m / normalization_value
     img_4 = img_4 / normalization_value
     img_p = img_p / normalization_value
 
-    # three_channel_im = img_4[:, :, 0:3]  # remove 4th channel
-    # np.clip(three_channel_im, None, 3000, out=three_channel_im)
-    # # finally, rescale to 8-bit range with threshold value scaled to 255
-    # three_channel_im = np.floor_divide(three_channel_im,
-    #                                   3000/255).astype('uint8')
-    # ax1 = plt.subplot(111)
-    # ax1.set_title(image_id)
-    # ax1.imshow(three_channel_im)
-    # plt.show()
-
-    # img_m = stretch_n(img_m)
-    # img_4 = stretch_n(img_4)
     img_p = np.expand_dims(img_p, 2)
     # img_p = stretch_n(img_p)
-
-
 
     rescaled_M = cv2.resize(img_m, (900, 900), interpolation=cv2.INTER_CUBIC)
     rescaled_M[rescaled_M > 1] = 1
     rescaled_M[rescaled_M < 0] = 0
 
-    # image_r = img_4[:, :, 2]
-    # image_g = img_4[:, :, 1]
-    # image_b = img_4[:, :, 0]
-    # nir = rescaled_M[:, :, 7]
-    # re = rescaled_M[:, :, 5]
-    #
-    # L = 1.0
-    # C1 = 6.0
-    # C2 = 7.5
-    # evi = (nir - image_r) / (nir + C1 * image_r - C2 * image_b + L)
-    # evi = np.expand_dims(evi, 2)
-    #
-    # ndwi = (image_g - nir) / (image_g + nir)
-    # ndwi = np.expand_dims(ndwi, 2)
-    #
-    # savi = (nir - image_r) / (image_r + nir)
-    # savi = np.expand_dims(savi, 2)
-
     result = np.transpose(np.concatenate([rescaled_M, img_p, img_4], axis=2), (2, 0, 1))
-
-    # result = np.transpose(np.concatenate([rescaled_M, img_p, ndwi, savi, evi, img_4], axis=2), (2, 0, 1))
     return result.astype(np.float16)
 
 

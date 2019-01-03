@@ -1,4 +1,4 @@
-# random seed instantiated here for reproducibility
+# random seed instantiated
 RANDOM_SEED = 1337
 import numpy as np
 np.random.seed(RANDOM_SEED)
@@ -18,40 +18,7 @@ from keras.models import load_model
 def compile_model(arch='unet', input_shape=(256, 256, 13), base_depth=64,
                   lr=0.0001, optimizer='Adam', loss_func='binary_crossentropy',
                   additional_metrics=[], verbose=False, **model_args):
-    """Compile a Keras model for training.
 
-    Arguments:
-    ----------
-    arch (['unet', 'ternausnetv1']): architecture of the model to be trained.
-        Defaults to 'unet', a vanilla UNet architecture. see model functions
-        for architecture details.
-    input_shape (3-tuple): a tuple defining the shape of the input image.
-    base_depth (int): the base convolution filter depth for the first layer
-        of the model. Must be divisible by two, as the final layer uses
-        base_depth/2 filters. The default value, 64, corresponds to the
-        original TernausNetV1 depth.
-    lr (float): learning rate.
-    optimizer (['Adam', 'Adagrad', 'Nadam', 'SGD', or optimizer instance]):
-        Optimizer to use to train the model. If a string from the options
-        above is passed, the Keras optimizer with the same name is called
-        with the default arguments (except learning rate, which uses the
-        value passed in `lr`.) Alternatively, users may instantiate a Keras
-        optimizer themselves with the desired configuration arguments and pass
-        it here. Defaults to Adam.
-    loss_func (str or function): Loss function to use during training.
-        As with most Keras model this can be a string (e.g. the default,
-        "binary_crossentropy") or a function.
-    additional_metrics (list of functions or strs): Metrics functions or strs
-        compatible with Keras. These are added to ['acc', 'mean_squared_error']
-        which are included by default.
-    model_args: additional arguments to pass during model instantiation. Use
-        to set dropout rate and/or dropout seed if running a vanilla unet.
-
-    Returns:
-    --------
-    A compiled Keras model ready to use for training.
-
-    """
 
     if arch == 'unet':
         print("<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>")
@@ -90,9 +57,7 @@ def compile_model(arch='unet', input_shape=(256, 256, 13), base_depth=64,
     try:
 
         parallel_model = multi_gpu_model(model, cpu_relocation=True,gpus=0)
-
         print(parallel_model.summary())
-
         #parallel_model.layers[-2].set_weights(model.get_weights())  # you can check the index of the sequential model with parallel_model.summary()
 
         print("<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>")
@@ -112,6 +77,96 @@ def compile_model(arch='unet', input_shape=(256, 256, 13), base_depth=64,
     return model, parallel_model
 
 
+
+def h_unet(input_shape=(256, 256, 13)):
+    inputs = Input(input_shape)
+    conv1 = Conv2D(32, 3, padding='same', kernel_initializer='he_uniform')(inputs)
+    conv1 = BatchNormalization()(conv1)
+    conv1 = keras.layers.ELU()(conv1)
+
+    conv1 = Conv2D(32, 3, padding='same', kernel_initializer='he_uniform')(conv1)
+    conv1 = BatchNormalization()(conv1)
+    conv1 = keras.layers.ELU()(conv1)
+
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+
+    conv2 = Conv2D(64, 3, padding='same', kernel_initializer='he_uniform')(pool1)
+    conv2 = BatchNormalization()(conv2)
+    conv2 = keras.layers.ELU()(conv2)
+
+    conv2 = Conv2D(64, 3, padding='same', kernel_initializer='he_uniform')(conv2)
+    conv2 = BatchNormalization()(conv2)
+    conv2 = keras.layers.ELU()(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+
+    conv3 = Conv2D(128, 3, padding='same', kernel_initializer='he_uniform')(pool2)
+    conv3 = BatchNormalization()(conv3)
+    conv3 = keras.layers.ELU()(conv3)
+
+    conv3 = Conv2D(128, 3, padding='same', kernel_initializer='he_uniform')(conv3)
+    conv3 = BatchNormalization()(conv3)
+    conv3 = keras.layers.ELU()(conv3)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+
+    conv4 = Conv2D(256, 3, padding='same', kernel_initializer='he_uniform')(pool3)
+    conv4 = BatchNormalization()(conv4)
+    conv4 = keras.layers.ELU()(conv4)
+
+    conv4 = Conv2D(256, 3, padding='same', kernel_initializer='he_uniform')(conv4)
+    conv4 = BatchNormalization()(conv4)
+    conv4 = keras.layers.ELU()(conv4)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+
+    conv5 = Conv2D(512, 3, padding='same', kernel_initializer='he_uniform')(pool4)
+    conv5 = BatchNormalization()(conv5)
+    conv5 = keras.layers.ELU()(conv5)
+
+    conv5 = Conv2D(512, 3, padding='same', kernel_initializer='he_uniform')(conv5)
+    conv5 = BatchNormalization()(conv5)
+    conv5 = keras.layers.ELU()(conv5)
+
+    up6 = concatenate([UpSampling2D(size=(2, 2))(conv5), conv4])
+
+    conv6 = Conv2D(256, 3, padding='same', kernel_initializer='he_uniform')(up6)
+    conv6 = BatchNormalization()(conv6)
+    conv6 = keras.layers.ELU()(conv6)
+
+    conv6 = Conv2D(256, 3, padding='same', kernel_initializer='he_uniform')(conv6)
+    conv6 = BatchNormalization()(conv6)
+    conv6 = keras.layers.ELU()(conv6)
+
+    # up7 = merge([UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
+    up7 = concatenate([UpSampling2D(size=(2, 2))(conv6), conv3])
+    conv7 = Conv2D(128, 3, padding='same', kernel_initializer='he_uniform')(up7)
+    conv7 = BatchNormalization()(conv7)
+    conv7 = keras.layers.ELU()(conv7)
+    conv7 = Conv2D(128, 3, padding='same', kernel_initializer='he_uniform')(conv7)
+    conv7 = BatchNormalization()(conv7)
+    conv7 = keras.layers.ELU()(conv7)
+
+    up8 = concatenate([UpSampling2D(size=(2, 2))(conv7), conv2])
+    conv8 = Conv2D(64, 3, padding='same', kernel_initializer='he_uniform')(up8)
+    conv8 = BatchNormalization()(conv8)
+    conv8 = keras.layers.advanced_activations.ELU()(conv8)
+    conv8 = Conv2D(64, 3, padding='same', kernel_initializer='he_uniform')(conv8)
+    conv8 = BatchNormalization()(conv8)
+    conv8 = keras.layers.ELU()(conv8)
+
+    # up9 = merge([UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
+    up9 = concatenate([UpSampling2D(size=(2, 2))(conv8), conv1])
+    conv9 = Conv2D(32, 3, padding='same', kernel_initializer='he_uniform')(up9)
+    conv9 = BatchNormalization()(conv9)
+    conv9 = keras.layers.ELU()(conv9)
+    conv9 = Conv2D(32, 3, padding='same', kernel_initializer='he_uniform')(conv9)
+    crop9 = Cropping2D(cropping=((16, 16), (16, 16)))(conv9)
+    conv9 = BatchNormalization()(crop9)
+    conv9 = keras.layers.ELU()(conv9)
+    conv10 = Conv2D(1, 1, padding='same',activation='sigmoid')(conv9)
+    # conv10 = Convolution2D(num_mask_channels, 1, 1, )(conv9)
+
+    return Model(inputs, conv10)
+
+    
 def ternausnetv1(input_shape=(256, 256, 13), base_depth=64):
     """Keras implementation of untrained TernausNet model architecture.
 
@@ -289,92 +344,3 @@ def vanilla_unet(input_shape=(256, 256, 13), base_depth=32, drop_rate=0,
 
     out = Conv2DTranspose(1, 1, activation='sigmoid', padding='same')(bn18)
     return Model(input, out)
-
-
-def h_unet(input_shape=(256, 256, 13)):
-    inputs = Input(input_shape)
-    conv1 = Conv2D(32, 3, padding='same', kernel_initializer='he_uniform')(inputs)
-    conv1 = BatchNormalization()(conv1)
-    conv1 = keras.layers.ELU()(conv1)
-
-    conv1 = Conv2D(32, 3, padding='same', kernel_initializer='he_uniform')(conv1)
-    conv1 = BatchNormalization()(conv1)
-    conv1 = keras.layers.ELU()(conv1)
-
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-
-    conv2 = Conv2D(64, 3, padding='same', kernel_initializer='he_uniform')(pool1)
-    conv2 = BatchNormalization()(conv2)
-    conv2 = keras.layers.ELU()(conv2)
-
-    conv2 = Conv2D(64, 3, padding='same', kernel_initializer='he_uniform')(conv2)
-    conv2 = BatchNormalization()(conv2)
-    conv2 = keras.layers.ELU()(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-
-    conv3 = Conv2D(128, 3, padding='same', kernel_initializer='he_uniform')(pool2)
-    conv3 = BatchNormalization()(conv3)
-    conv3 = keras.layers.ELU()(conv3)
-
-    conv3 = Conv2D(128, 3, padding='same', kernel_initializer='he_uniform')(conv3)
-    conv3 = BatchNormalization()(conv3)
-    conv3 = keras.layers.ELU()(conv3)
-    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-
-    conv4 = Conv2D(256, 3, padding='same', kernel_initializer='he_uniform')(pool3)
-    conv4 = BatchNormalization()(conv4)
-    conv4 = keras.layers.ELU()(conv4)
-
-    conv4 = Conv2D(256, 3, padding='same', kernel_initializer='he_uniform')(conv4)
-    conv4 = BatchNormalization()(conv4)
-    conv4 = keras.layers.ELU()(conv4)
-    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
-
-    conv5 = Conv2D(512, 3, padding='same', kernel_initializer='he_uniform')(pool4)
-    conv5 = BatchNormalization()(conv5)
-    conv5 = keras.layers.ELU()(conv5)
-
-    conv5 = Conv2D(512, 3, padding='same', kernel_initializer='he_uniform')(conv5)
-    conv5 = BatchNormalization()(conv5)
-    conv5 = keras.layers.ELU()(conv5)
-
-    up6 = concatenate([UpSampling2D(size=(2, 2))(conv5), conv4])
-
-    conv6 = Conv2D(256, 3, padding='same', kernel_initializer='he_uniform')(up6)
-    conv6 = BatchNormalization()(conv6)
-    conv6 = keras.layers.ELU()(conv6)
-
-    conv6 = Conv2D(256, 3, padding='same', kernel_initializer='he_uniform')(conv6)
-    conv6 = BatchNormalization()(conv6)
-    conv6 = keras.layers.ELU()(conv6)
-
-    # up7 = merge([UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
-    up7 = concatenate([UpSampling2D(size=(2, 2))(conv6), conv3])
-    conv7 = Conv2D(128, 3, padding='same', kernel_initializer='he_uniform')(up7)
-    conv7 = BatchNormalization()(conv7)
-    conv7 = keras.layers.ELU()(conv7)
-    conv7 = Conv2D(128, 3, padding='same', kernel_initializer='he_uniform')(conv7)
-    conv7 = BatchNormalization()(conv7)
-    conv7 = keras.layers.ELU()(conv7)
-
-    up8 = concatenate([UpSampling2D(size=(2, 2))(conv7), conv2])
-    conv8 = Conv2D(64, 3, padding='same', kernel_initializer='he_uniform')(up8)
-    conv8 = BatchNormalization()(conv8)
-    conv8 = keras.layers.advanced_activations.ELU()(conv8)
-    conv8 = Conv2D(64, 3, padding='same', kernel_initializer='he_uniform')(conv8)
-    conv8 = BatchNormalization()(conv8)
-    conv8 = keras.layers.ELU()(conv8)
-
-    # up9 = merge([UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
-    up9 = concatenate([UpSampling2D(size=(2, 2))(conv8), conv1])
-    conv9 = Conv2D(32, 3, padding='same', kernel_initializer='he_uniform')(up9)
-    conv9 = BatchNormalization()(conv9)
-    conv9 = keras.layers.ELU()(conv9)
-    conv9 = Conv2D(32, 3, padding='same', kernel_initializer='he_uniform')(conv9)
-    crop9 = Cropping2D(cropping=((16, 16), (16, 16)))(conv9)
-    conv9 = BatchNormalization()(crop9)
-    conv9 = keras.layers.ELU()(conv9)
-    conv10 = Conv2D(1, 1, padding='same',activation='sigmoid')(conv9)
-    # conv10 = Convolution2D(num_mask_channels, 1, 1, )(conv9)
-
-    return Model(inputs, conv10)
